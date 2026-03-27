@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GeoBrain</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6f0;--green:#639922;--gl:#e8f0d8;--gm:#c8dda0;
+  --red:#ff4b2b;--blk:#1a1a1a;--wht:#ffffff;
+  --sh:8px 8px 0 #1a1a1a;--shsm:4px 4px 0 #1a1a1a;
+  --bd:3px solid #1a1a1a;--r:14px;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Nunito',sans-serif;background:var(--bg);display:flex;flex-direction:column;height:100vh}
+
+/* MODE SELECT */
+#mode-screen{position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+#mode-screen.hidden{display:none}
+.ms-logo{font-family:'Space Mono',monospace;font-size:44px;font-weight:700;color:var(--blk);letter-spacing:-2px;margin-bottom:2px}
+.ms-logo span{color:var(--green)}
+.ms-tag{font-size:12px;color:#888;margin-bottom:32px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
+.ms-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:480px}
+.ms-card{background:var(--wht);border:var(--bd);border-radius:var(--r);padding:22px 16px;cursor:pointer;box-shadow:var(--sh);transition:all 0.12s;text-align:center;position:relative;overflow:hidden}
+.ms-card:hover{transform:translate(-3px,-3px);box-shadow:11px 11px 0 var(--blk)}
+.ms-card:active{transform:translate(4px,4px);box-shadow:2px 2px 0 var(--blk)}
+.ms-icon{font-size:36px;margin-bottom:8px;display:block}
+.ms-label{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--blk);margin-bottom:3px}
+.ms-desc{font-size:11px;color:#888;font-weight:600;line-height:1.4}
+.ms-card.green{background:var(--green)}.ms-card.green .ms-label,.ms-card.green .ms-desc{color:var(--wht)}
+.ms-badge{position:absolute;top:8px;right:8px;background:var(--red);color:var(--wht);font-family:'Space Mono',monospace;font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;border:1.5px solid var(--blk)}
+
+/* MODALS */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9500;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.modal-card{background:var(--wht);border:var(--bd);border-radius:20px;box-shadow:var(--sh);padding:28px;max-width:360px;width:90%}
+.modal-title{font-family:'Space Mono',monospace;font-size:17px;font-weight:700;margin-bottom:16px;color:var(--blk)}
+.tabs{display:flex;gap:8px;margin-bottom:18px}
+.tab{flex:1;padding:9px;border:2px solid var(--blk);border-radius:9px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;background:var(--bg);transition:all 0.1s}
+.tab.on{background:var(--blk);color:var(--wht)}
+.tsec{display:none}.tsec.on{display:block}
+.m-input{width:100%;padding:11px 14px;border:2px solid var(--blk);border-radius:9px;font-family:'Space Mono',monospace;font-size:20px;font-weight:700;background:var(--bg);color:var(--blk);outline:none;margin-bottom:12px;text-align:center;letter-spacing:4px}
+.m-input.sm{font-size:14px;letter-spacing:0;font-family:'Nunito',sans-serif}
+.m-btn{width:100%;padding:13px;border:var(--bd);border-radius:9px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;box-shadow:var(--shsm);transition:all 0.1s;margin-bottom:8px}
+.m-btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--blk)}
+.m-btn.pri{background:var(--green);color:var(--wht)}.m-btn.sec{background:var(--bg);color:var(--blk)}
+#code-box{background:var(--gl);border:2px solid var(--blk);border-radius:9px;padding:14px;text-align:center;margin-bottom:12px}
+#code-box .code{font-family:'Space Mono',monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:var(--green)}
+#code-box .sub{font-size:11px;color:#888;margin-top:3px;font-weight:600}
+.m-status{font-size:11px;color:#888;text-align:center;font-weight:600;min-height:16px;margin-bottom:8px}
+.pnp-row{display:flex;gap:8px;margin-bottom:12px}
+
+/* HEADER */
+#header{background:var(--wht);border-bottom:var(--bd);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;z-index:1000;position:relative}
+#logo{font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--blk);letter-spacing:-1px;cursor:pointer}
+#logo span{color:var(--green)}
+#hearts{display:flex;gap:4px;align-items:center}
+.heart{font-size:18px;transition:transform 0.3s,opacity 0.3s}
+.heart.lost{opacity:0.2;transform:scale(0.7)}
+#hdr-mid{text-align:center}
+#round-text{font-family:'Space Mono',monospace;font-size:11px;color:var(--blk)}
+#mode-badge{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;border:1.5px solid var(--blk);background:var(--blk);color:var(--wht);margin-top:2px;display:inline-block}
+#score-disp{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;background:var(--green);color:var(--wht);padding:4px 10px;border:2px solid var(--blk);border-radius:6px;box-shadow:3px 3px 0 var(--blk);white-space:nowrap}
+
+/* MAIN */
+#main{display:flex;flex:1;overflow:hidden;position:relative}
+#map{flex:1;height:100%;z-index:1}
+.leaflet-container{background:#e8eef4}
+
+/* CLUE CARD */
+#clue-card{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:var(--wht);border:var(--bd);border-radius:var(--r);box-shadow:var(--sh);padding:12px 16px;min-width:270px;max-width:400px;z-index:500;animation:sld 0.4s cubic-bezier(0.34,1.56,0.64,1)}
+@keyframes sld{from{transform:translateX(-50%) translateY(-20px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+#clue-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+#clue-lbl{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);background:var(--gl);padding:3px 8px;border-radius:4px;border:1.5px solid var(--gm)}
+#clue-n{font-family:'Space Mono',monospace;font-size:10px;color:#888}
+#clue-txt{font-size:13px;font-weight:700;color:var(--blk);line-height:1.5}
+#hint-btn{margin-top:10px;width:100%;padding:7px;background:var(--gl);border:2px solid var(--blk);border-radius:8px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer;box-shadow:3px 3px 0 var(--blk);transition:all 0.1s;color:var(--blk)}
+#hint-btn:hover{background:var(--gm)}
+#hint-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--blk)}
+#hint-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:3px 3px 0 var(--blk)}
+
+/* TURN BANNER */
+#turn-banner{position:absolute;top:12px;left:12px;background:var(--blk);color:var(--wht);border:var(--bd);border-radius:var(--r);padding:10px 14px;z-index:500;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;box-shadow:var(--shsm);display:none}
+#turn-banner.on{display:block}
+#turn-name{font-size:15px;color:var(--green)}
+
+/* ONLINE BAR */
+#online-bar{position:absolute;left:12px;top:12px;background:var(--wht);border:var(--bd);border-radius:10px;padding:8px 12px;z-index:500;box-shadow:var(--shsm);display:none}
+#online-bar.on{display:block}
+.ob-lbl{font-family:'Space Mono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:3px}
+.ob-peer{font-size:12px;font-weight:800;color:var(--blk);display:flex;align-items:center;gap:6px}
+.ob-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* SEARCH */
+#search-panel{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);width:90%;max-width:480px;z-index:500}
+#search-wrap{background:var(--wht);border:var(--bd);border-radius:var(--r);box-shadow:var(--sh);padding:12px}
+#search-row{display:flex;gap:8px}
+#guess-input{flex:1;height:46px;padding:0 14px;border:2px solid var(--blk);border-radius:10px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;background:var(--bg);color:var(--blk);outline:none;transition:all 0.15s}
+#guess-input:focus{background:var(--wht);box-shadow:0 0 0 3px rgba(99,153,34,0.2);border-color:var(--green)}
+#guess-input.shake{animation:shk 0.4s}
+@keyframes shk{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+#guess-btn{height:46px;padding:0 18px;background:var(--green);color:var(--wht);border:2px solid var(--blk);border-radius:10px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;box-shadow:var(--shsm);transition:all 0.1s;white-space:nowrap}
+#guess-btn:hover{background:#527a1a}
+#guess-btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--blk)}
+#ac-list{position:absolute;bottom:100%;left:0;right:0;background:var(--wht);border:var(--bd);border-radius:var(--r);box-shadow:var(--sh);max-height:200px;overflow-y:auto;margin-bottom:8px;display:none;z-index:600}
+#ac-list.open{display:block}
+.ac-item{padding:10px 14px;cursor:pointer;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;border-bottom:1px solid #eee;transition:background 0.1s}
+.ac-item:last-child{border-bottom:none}
+.ac-item:hover,.ac-item.sel{background:var(--gl)}
+.ac-item .m{color:var(--green);font-weight:800}
+
+/* HISTORY */
+#hist-tray{position:absolute;right:12px;top:12px;bottom:70px;width:195px;z-index:400;display:flex;flex-direction:column;overflow:hidden}
+#hist-lbl{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:6px}
+#hist-list{display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1;scrollbar-width:thin}
+.hi{background:var(--wht);border:2px solid var(--blk);border-radius:10px;padding:8px 10px;display:flex;align-items:center;gap:8px;box-shadow:3px 3px 0 var(--blk);animation:pop 0.3s cubic-bezier(0.34,1.56,0.64,1)}
+@keyframes pop{from{transform:scale(0.8) translateX(20px);opacity:0}to{transform:scale(1) translateX(0);opacity:1}}
+.hi-flag{font-size:18px;line-height:1}
+.hi-info{flex:1;min-width:0}
+.hi-name{font-size:11px;font-weight:800;color:var(--blk);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hi-who{font-size:9px;color:#aaa;font-weight:700}
+.hi-dist{font-family:'Space Mono',monospace;font-size:10px;font-weight:700}
+.hi-dist.f{color:var(--red)}.hi-dist.c{color:var(--green)}.hi-dist.m{color:#f59e0b}
+
+/* AI BADGE */
+#ai-badge{position:absolute;left:12px;bottom:70px;background:var(--blk);color:var(--wht);border:2px solid var(--blk);border-radius:10px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;z-index:400;box-shadow:var(--shsm);display:none}
+#ai-badge.on{display:block}
+
+/* HANDOFF */
+#handoff{position:fixed;inset:0;background:var(--blk);z-index:8000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+#handoff.open{display:flex}
+#ho-emoji{font-size:70px}
+#ho-title{font-family:'Space Mono',monospace;font-size:24px;font-weight:700;color:var(--wht);text-align:center}
+#ho-sub{font-size:14px;color:#aaa;text-align:center;font-weight:600}
+#ho-btn{padding:16px 40px;background:var(--green);color:var(--wht);border:var(--bd);border-radius:14px;font-family:'Space Mono',monospace;font-size:16px;font-weight:700;cursor:pointer;box-shadow:var(--sh);transition:all 0.1s}
+#ho-btn:active{transform:translate(4px,4px);box-shadow:2px 2px 0 var(--blk)}
+
+/* RESULT */
+#result{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#result.open{display:flex}
+#rc{background:var(--wht);border:var(--bd);border-radius:20px;box-shadow:var(--sh);padding:26px 30px;max-width:420px;width:90%;text-align:center;animation:pop 0.4s cubic-bezier(0.34,1.56,0.64,1)}
+#r-flag{font-size:58px;margin-bottom:10px}
+#r-title{font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--blk);margin-bottom:4px}
+#r-sub{font-size:13px;color:#666;margin-bottom:12px}
+#r-dist{font-family:'Space Mono',monospace;font-size:26px;font-weight:700;margin-bottom:14px}
+#r-dist.win{color:var(--green)}#r-dist.loss{color:var(--red)}
+#r-scores{display:flex;gap:10px;justify-content:center;margin-bottom:18px;flex-wrap:wrap}
+.rsb{flex:1;min-width:80px;background:var(--bg);border:2px solid var(--blk);border-radius:10px;padding:10px 8px;text-align:center}
+.rsb-n{font-size:10px;font-weight:800;color:#888;margin-bottom:4px}
+.rsb-v{font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--blk)}
+#r-next{width:100%;padding:14px;background:var(--green);color:var(--wht);border:var(--bd);border-radius:12px;font-family:'Space Mono',monospace;font-size:14px;font-weight:700;cursor:pointer;box-shadow:var(--shsm);transition:all 0.1s}
+#r-next:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--blk)}
+
+/* GAME OVER */
+#gameover{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+#gameover.open{display:flex}
+#gc{background:var(--wht);border:var(--bd);border-radius:20px;box-shadow:12px 12px 0 var(--blk);padding:30px;max-width:440px;width:90%;text-align:center}
+#go-emo{font-size:58px;margin-bottom:10px}
+#go-ttl{font-family:'Space Mono',monospace;font-size:26px;font-weight:700;color:var(--blk);margin-bottom:16px}
+#go-scores{display:flex;gap:12px;justify-content:center;margin-bottom:14px;flex-wrap:wrap}
+.gsb{background:var(--bg);border:var(--bd);border-radius:12px;padding:14px 20px;min-width:110px;box-shadow:var(--shsm)}
+.gsb.win{background:var(--green);border-color:var(--blk)}
+.gsb.win .gsb-n,.gsb.win .gsb-v{color:var(--wht)}
+.gsb-n{font-size:11px;font-weight:800;color:#666;margin-bottom:4px}
+.gsb-v{font-family:'Space Mono',monospace;font-size:30px;font-weight:700;color:var(--blk)}
+.gsb-l{font-size:10px;color:#888;font-weight:700}
+#go-win{font-size:16px;font-weight:800;color:var(--blk);margin-bottom:20px}
+#go-btn{width:100%;padding:15px;background:var(--blk);color:var(--wht);border:var(--bd);border-radius:12px;font-family:'Space Mono',monospace;font-size:15px;font-weight:700;cursor:pointer;box-shadow:var(--shsm);transition:all 0.1s}
+#go-btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--blk)}
+
+@media(max-width:600px){#hist-tray{display:none}#clue-card{min-width:230px;max-width:calc(100vw - 24px)}#search-panel{width:95%}#logo{font-size:16px}.ms-grid{grid-template-columns:1fr}.ms-logo{font-size:34px}}
+</style>
+</head>
+<body>
+
+<!-- ═══ MODE SELECT ═══ -->
+<div id="mode-screen">
+  <div class="ms-logo">Geo<span>Brain</span></div>
+  <div class="ms-tag">🌍 Choose Your Mode</div>
+  <div class="ms-grid">
+    <div class="ms-card green" onclick="startMode('solo')">
+      <span class="ms-icon">🎯</span>
+      <div class="ms-label">SOLO</div>
+      <div class="ms-desc">You vs the world.<br/>Chase your high score.</div>
+    </div>
+    <div class="ms-card" onclick="startMode('ai')">
+      <span class="ms-icon">🤖</span>
+      <div class="ms-label">VS AI</div>
+      <div class="ms-desc">Face a smart AI<br/>that learns each round.</div>
+    </div>
+    <div class="ms-card" onclick="openPnP()">
+      <span class="ms-icon">🤝</span>
+      <div class="ms-label">PASS & PLAY</div>
+      <div class="ms-desc">2 players, 1 device.<br/>Take turns guessing.</div>
+    </div>
+    <div class="ms-card" onclick="openOnline()">
+      <div class="ms-badge">LIVE</div>
+      <span class="ms-icon">🌐</span>
+      <div class="ms-label">ONLINE</div>
+      <div class="ms-desc">Challenge a friend<br/>with a room code.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ONLINE MODAL ═══ -->
+<div id="online-modal" class="modal">
+  <div class="modal-card">
+    <div class="modal-title">🌐 Online Multiplayer</div>
+    <div class="tabs">
+      <button class="tab on" onclick="omTab('host',this)">HOST</button>
+      <button class="tab" onclick="omTab('join',this)">JOIN</button>
+    </div>
+    <div id="t-host" class="tsec on">
+      <div id="code-box"><div class="code" id="om-code">····</div><div class="sub">Share this code with a friend</div></div>
+      <div id="om-stat" class="m-status">Generating code...</div>
+    </div>
+    <div id="t-join" class="tsec">
+      <input id="om-join-inp" class="m-input" type="text" maxlength="4" placeholder="CODE" oninput="this.value=this.value.toUpperCase()"/>
+      <button class="m-btn pri" onclick="joinOnline()">JOIN ROOM →</button>
+      <div id="om-join-stat" class="m-status"></div>
+    </div>
+    <button class="m-btn sec" onclick="closeOnline()">← Back</button>
+  </div>
+</div>
+
+<!-- ═══ PASS & PLAY MODAL ═══ -->
+<div id="pnp-modal" class="modal">
+  <div class="modal-card">
+    <div class="modal-title">🤝 Pass & Play Setup</div>
+    <p style="font-size:13px;color:#666;margin-bottom:14px;font-weight:600">Enter names for both players:</p>
+    <div class="pnp-row">
+      <input id="pnp-p1" class="m-input sm" type="text" placeholder="Player 1" value="Player 1"/>
+      <input id="pnp-p2" class="m-input sm" type="text" placeholder="Player 2" value="Player 2"/>
+    </div>
+    <button class="m-btn pri" onclick="startPnP()">START GAME →</button>
+    <button class="m-btn sec" onclick="closePnP()">← Back</button>
+  </div>
+</div>
+
+<!-- ═══ HEADER ═══ -->
+<div id="header">
+  <div id="logo" onclick="goHome()">Geo<span>Brain</span></div>
+  <div id="hdr-mid">
+    <div id="round-text">ROUND 1/10</div>
+    <span id="mode-badge">SOLO</span>
+  </div>
+  <div id="hearts">
+    <span class="heart" id="h1">❤️</span><span class="heart" id="h2">❤️</span>
+    <span class="heart" id="h3">❤️</span><span class="heart" id="h4">❤️</span>
+    <span class="heart" id="h5">❤️</span>
+  </div>
+  <div id="score-disp">0 PTS</div>
+</div>
+
+<!-- ═══ GAME ═══ -->
+<div id="main">
+  <div id="map"></div>
+
+  <div id="clue-card">
+    <div id="clue-hdr">
+      <span id="clue-lbl">CLUE 1 — REGION</span>
+      <span id="clue-n">1/4</span>
+    </div>
+    <div id="clue-txt">Loading...</div>
+    <button id="hint-btn">🔍 Reveal Next Clue (–50 pts)</button>
+  </div>
+
+  <div id="turn-banner">
+    <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#aaa;margin-bottom:2px">NOW GUESSING</div>
+    <div id="turn-name">Player 1</div>
+  </div>
+
+  <div id="online-bar">
+    <div class="ob-lbl">Opponent</div>
+    <div class="ob-peer"><span class="ob-dot"></span><span id="ob-name">Friend</span></div>
+  </div>
+
+  <div id="hist-tray">
+    <div id="hist-lbl">Guesses This Round</div>
+    <div id="hist-list"></div>
+  </div>
+
+  <div id="ai-badge">🤖 AI IS THINKING...</div>
+
+  <div id="search-panel">
+    <div id="search-wrap">
+      <div style="position:relative">
+        <div id="ac-list"></div>
+        <div id="search-row">
+          <input id="guess-input" type="text" placeholder="Type a country name..." autocomplete="off" spellcheck="false"/>
+          <button id="guess-btn">GUESS →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HANDOFF -->
+<div id="handoff">
+  <div id="ho-emoji">📱</div>
+  <div id="ho-title">Pass the device!</div>
+  <div id="ho-sub"></div>
+  <button id="ho-btn">I'M READY →</button>
+</div>
+
+<!-- RESULT -->
+<div id="result">
+  <div id="rc">
+    <div id="r-flag"></div>
+    <div id="r-title"></div>
+    <div id="r-sub"></div>
+    <div id="r-dist"></div>
+    <div id="r-scores"></div>
+    <button id="r-next">NEXT ROUND →</button>
+  </div>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameover">
+  <div id="gc">
+    <div id="go-emo">🧠</div>
+    <div id="go-ttl">GAME OVER</div>
+    <div id="go-scores"></div>
+    <div id="go-win"></div>
+    <button id="go-btn" onclick="goHome()">← MAIN MENU</button>
+  </div>
+</div>
+
+<script>
+// ══════════════ COUNTRIES ══════════════
+const COUNTRIES=[
+  {name:"Afghanistan",flag:"🇦🇫",lat:33.93,lng:67.71,clues:["Landlocked nation in Central/South Asia","Rugged Hindu Kush mountains dominate the terrain","Ancient Silk Road crossroads; decades of modern conflict","Famous for pomegranates, buzkashi sport, and deep hospitality"]},
+  {name:"Albania",flag:"🇦🇱",lat:41.15,lng:20.17,clues:["Small Balkan country on the Adriatic Sea","Dramatic Alps in the north, sunny Riviera coast in the south","Former isolationist communist state, now an EU candidate","'Shqipëri' means Land of Eagles; Mother Teresa was born here"]},
+  {name:"Argentina",flag:"🇦🇷",lat:-38.42,lng:-63.62,clues:["Second-largest country in South America","Andes mountains to the west, vast Pampas grasslands","Land of tango, Patagonia glaciers, and world-class wine","8-time FIFA World Cup finalists; capital is Buenos Aires"]},
+  {name:"Australia",flag:"🇦🇺",lat:-25.27,lng:133.78,clues:["World's largest island and smallest continent","Home to the Great Barrier Reef and the vast Outback","Commonwealth realm; world's leading wool exporter","Unique wildlife: kangaroos, koalas, wombats, and platypuses"]},
+  {name:"Brazil",flag:"🇧🇷",lat:-14.24,lng:-51.93,clues:["Largest country in South America by area and population","Amazon Rainforest covers over half the country","World's largest producer of coffee and sugarcane","Home of Carnival, football culture, and samba music"]},
+  {name:"Canada",flag:"🇨🇦",lat:56.13,lng:-106.35,clues:["Second-largest country in the world by total area","Vast boreal forests, tundra, and Rocky Mountains","Bilingual: English and French are official languages","Maple syrup powerhouse; home to Niagara Falls"]},
+  {name:"Chile",flag:"🇨🇱",lat:-35.68,lng:-71.54,clues:["World's longest and narrowest country at 4,300km","Pacific coast to the west, Andes mountains to the east","Atacama Desert in the north is Earth's driest non-polar desert","World's top copper producer; world-famous wines"]},
+  {name:"China",flag:"🇨🇳",lat:35.86,lng:104.20,clues:["Most populous nation on Earth with 1.4 billion people","Home to the Great Wall, Himalayas, and Yangtze River","Oldest continuous civilisation; invented paper and gunpowder","World's largest exporter; capital is Beijing"]},
+  {name:"Colombia",flag:"🇨🇴",lat:4.57,lng:-74.30,clues:["Only South American country with both Pacific and Caribbean coasts","Three Andean cordilleras run through its centre","World's top producer of emeralds and premium coffee","García Márquez homeland; capital is Bogotá"]},
+  {name:"Egypt",flag:"🇪🇬",lat:26.82,lng:30.80,clues:["North African nation; gateway between Africa and Asia","The Nile River — world's longest — flows through it","Home to the Great Pyramids of Giza and the Sphinx","One of the earliest civilisations, over 5,000 years old"]},
+  {name:"Ethiopia",flag:"🇪🇹",lat:9.15,lng:40.49,clues:["Located in the Horn of Africa; Africa's oldest independent nation","Source of the Blue Nile; vast highlands and the Great Rift Valley","Only African country never colonised (briefly occupied by Italy)","Birthplace of coffee; capital Addis Ababa hosts the African Union"]},
+  {name:"France",flag:"🇫🇷",lat:46.23,lng:2.21,clues:["Largest country in Western Europe by area","Bordered by 8 countries and two seas","World's most visited country; home to the Eiffel Tower","Premier wine, cheese, and fashion powerhouse; capital is Paris"]},
+  {name:"Germany",flag:"🇩🇪",lat:51.17,lng:10.45,clues:["Most populous country in the European Union","Rhine and Danube rivers; Black Forest and Bavarian Alps","Oktoberfest, the world's largest beer festival, is held here","Birthplace of Beethoven, Goethe, Gutenberg, and Karl Marx"]},
+  {name:"Ghana",flag:"🇬🇭",lat:7.95,lng:-1.02,clues:["West African nation on the Gulf of Guinea","Tropical rainforest in the south; savanna in the north","First sub-Saharan African country to gain independence in 1957","World's second-largest cocoa producer; capital is Accra"]},
+  {name:"Greece",flag:"🇬🇷",lat:39.07,lng:21.82,clues:["Southern European nation with over 6,000 islands","Mediterranean climate; Mount Olympus is the highest peak","Cradle of Western civilisation, democracy, and philosophy","World's largest merchant fleet; famous for olive oil and feta"]},
+  {name:"Iceland",flag:"🇮🇸",lat:64.96,lng:-19.02,clues:["Island nation in the North Atlantic, close to the Arctic Circle","Most volcanically active country on Earth; land of geysers and lava","World's oldest parliament — the Althing — founded in 930 AD","Runs almost entirely on renewable geothermal and hydro energy"]},
+  {name:"India",flag:"🇮🇳",lat:20.59,lng:78.96,clues:["South Asian nation; world's most populous country","Himalayan peaks in the north; tropical coast and backwaters in the south","Birthplace of Hinduism, Buddhism, yoga, and the number zero","World's largest democracy; capital is New Delhi"]},
+  {name:"Indonesia",flag:"🇮🇩",lat:-0.79,lng:113.92,clues:["World's largest archipelago with over 17,000 islands","Straddles the equator across Southeast Asia","Fourth most populous country on Earth","Largest Muslim-majority country by population; capital is Jakarta"]},
+  {name:"Iran",flag:"🇮🇷",lat:32.43,lng:53.69,clues:["Located at the crossroads of the Middle East and Central Asia","Vast central plateau ringed by mountain ranges","Birthplace of the ancient Persian Empire; Persepolis ruins are here","World's top saffron producer; capital is Tehran"]},
+  {name:"Ireland",flag:"🇮🇪",lat:53.41,lng:-8.24,clues:["Island nation in the North Atlantic, west of Great Britain","The 'Emerald Isle'; famous for lush green rolling hills","Celtic culture; over 40 million people worldwide claim Irish descent","Birthplace of Guinness, Oscar Wilde, and James Joyce"]},
+  {name:"Italy",flag:"🇮🇹",lat:41.87,lng:12.57,clues:["Boot-shaped peninsula extending into the Mediterranean","Alps in the north; warm sea coastlines all around","Home to Rome, Venice, Florence, and the Vatican City","World's top olive oil producer; birthplace of the Renaissance"]},
+  {name:"Japan",flag:"🇯🇵",lat:36.20,lng:138.25,clues:["Island nation in the Pacific Ocean, east of the Korean Peninsula","Four main islands; over 100 active volcanoes including Mount Fuji","Constitutional monarchy; world's third-largest economy","Birthplace of anime, sushi, and the high-speed Shinkansen bullet train"]},
+  {name:"Kenya",flag:"🇰🇪",lat:-0.02,lng:37.91,clues:["East African nation that straddles the equator","Great Rift Valley runs through it; home to Mount Kenya","Famous for the Maasai Mara and the Great Wildebeest Migration","World's top tea exporter; Nairobi is Africa's 'Silicon Savannah'"]},
+  {name:"Madagascar",flag:"🇲🇬",lat:-18.77,lng:46.87,clues:["Large island nation off the southeast coast of Africa","Fourth-largest island in the world","Over 90% of its wildlife is found nowhere else on Earth","Lemurs are its most iconic animal; vanilla is a top export"]},
+  {name:"Mexico",flag:"🇲🇽",lat:23.63,lng:-102.55,clues:["Located in North America, directly south of the United States","Sierra Madre mountain ranges frame a vast central plateau","Ancient Aztec and Mayan civilisations originated here","World's largest Spanish-speaking country; capital is Mexico City"]},
+  {name:"Mongolia",flag:"🇲🇳",lat:46.86,lng:103.85,clues:["Landlocked nation sandwiched between Russia and China","World's most sparsely populated sovereign country","Vast Gobi Desert in the south; open steppe grasslands dominate","Birthplace of Genghis Khan; nomadic herding culture still thrives"]},
+  {name:"Morocco",flag:"🇲🇦",lat:31.79,lng:-7.09,clues:["Northwest African country at the Strait of Gibraltar","Atlas Mountains separate the Sahara from the Atlantic coast","Africa's gateway to Europe; ancient medinas are UNESCO-listed","World's largest phosphate reserves; iconic mint tea culture"]},
+  {name:"Nepal",flag:"🇳🇵",lat:28.39,lng:84.12,clues:["Landlocked country in South Asia between India and China","Home to 8 of the world's 10 tallest mountains, including Everest","Deeply Hindu and Buddhist nation; constitutional republic since 2008","Birthplace of Siddhartha Gautama, the historical Buddha"]},
+  {name:"New Zealand",flag:"🇳🇿",lat:-40.90,lng:174.89,clues:["Island nation in the Pacific, southeast of Australia","First country in the world to give women the vote in 1893","Maori culture is central to national identity; All Blacks are world-famous","Peter Jackson's homeland; filming location for The Lord of the Rings"]},
+  {name:"Nigeria",flag:"🇳🇬",lat:9.08,lng:8.68,clues:["Most populous country in Africa with over 220 million people","Niger Delta is one of the world's largest river deltas","Largest economy in Africa; oil is the dominant export","Nollywood is the world's second-largest film industry by volume"]},
+  {name:"Norway",flag:"🇳🇴",lat:60.47,lng:8.47,clues:["Scandinavian country forming the western half of the Scandinavian Peninsula","Famous for thousands of dramatic fjords carved by ancient glaciers","Consistently ranked among the world's happiest nations","Sovereign wealth fund is the world's largest; capital is Oslo"]},
+  {name:"Pakistan",flag:"🇵🇰",lat:30.38,lng:69.35,clues:["South Asian nation bordering India, Afghanistan, Iran, and China","K2 — the world's second-highest mountain — is located here","Founded in 1947; world's first nation created in the name of Islam","Home to the ancient Indus Valley Civilisation at Mohenjo-daro"]},
+  {name:"Peru",flag:"🇵🇪",lat:-9.19,lng:-75.02,clues:["Western South American country on the Pacific Ocean coast","Andes Mountains and Amazon rainforest cover most of the country","Birthplace of the Inca Empire; Machu Picchu is located here","World's top producer of asparagus and fishmeal"]},
+  {name:"Philippines",flag:"🇵🇭",lat:12.88,lng:121.77,clues:["Southeast Asian archipelago comprising over 7,600 islands","Located in the Pacific Ring of Fire; frequent typhoons","Only predominantly Christian country in Asia","World's largest exporter of healthcare workers; capital is Manila"]},
+  {name:"Poland",flag:"🇵🇱",lat:51.92,lng:19.15,clues:["Central European nation on the vast North European Plain","Few natural boundaries; invaded from both east and west throughout history","Largest economy in Central Europe; EU member since 2004","Birthplace of Copernicus, Marie Curie, Fryderyk Chopin, and John Paul II"]},
+  {name:"Portugal",flag:"🇵🇹",lat:39.40,lng:-8.22,clues:["Westernmost country on the European continent","Its Atlantic coastline stretches over 1,794 kilometres","Former global maritime empire; reached Brazil, Africa, and Asia","World-famous for fado music, port wine, and pastéis de nata"]},
+  {name:"Russia",flag:"🇷🇺",lat:61.52,lng:105.32,clues:["World's largest country by area, spanning 11 time zones","Stretches from the Baltic Sea to the Pacific Ocean","Permanent UN Security Council member; vast oil and gas reserves","Birthplace of Tolstoy, Dostoevsky, Tchaikovsky, and Yuri Gagarin"]},
+  {name:"Saudi Arabia",flag:"🇸🇦",lat:23.89,lng:45.08,clues:["Largest country in the Middle East; mostly desert terrain","Home to Mecca and Medina — the two holiest sites in Islam","World's largest proven oil reserves and second-largest producer","Absolute monarchy; women only gained the right to drive in 2018"]},
+  {name:"South Africa",flag:"🇿🇦",lat:-30.56,lng:22.94,clues:["Southernmost country in Africa; has three capital cities","The Cape of Good Hope marks where the Atlantic meets the Indian Ocean","Rainbow Nation with 11 official languages; apartheid ended in 1994","Nelson Mandela's homeland; world's top platinum and chrome producer"]},
+  {name:"South Korea",flag:"🇰🇷",lat:35.91,lng:127.77,clues:["East Asian nation occupying the southern Korean Peninsula","Mostly mountainous; the Han River runs through its capital","Economic miracle: transformed from war-torn to global tech powerhouse","K-pop, K-drama, and kimchi have gone global"]},
+  {name:"Spain",flag:"🇪🇸",lat:40.46,lng:-3.75,clues:["Second-largest country in the European Union by area","Pyrenees mountains in the north; Mediterranean and Atlantic coasts","Spanish is the world's second most widely spoken native language","Birthplace of flamenco, tapas, Picasso, and Salvador Dalí"]},
+  {name:"Sweden",flag:"🇸🇪",lat:60.13,lng:18.64,clues:["Scandinavian nation in Northern Europe; largest in the region","Bordered by Norway to the west and Finland to the northeast","Home to IKEA, H&M, Spotify, Volvo, and the Nobel Prize","Land of the midnight sun and the Northern Lights"]},
+  {name:"Switzerland",flag:"🇨🇭",lat:46.82,lng:8.23,clues:["Small landlocked country in the heart of Central Europe","Surrounded by France, Germany, Italy, Austria, and Liechtenstein","Permanently neutral nation; hosts the UN and the Red Cross HQ","Famous worldwide for watches, chocolate, private banking, and skiing"]},
+  {name:"Tanzania",flag:"🇹🇿",lat:-6.37,lng:34.89,clues:["East African nation with a long Indian Ocean coastline","Mount Kilimanjaro — Africa's highest peak — is located here","Home to the Serengeti National Park and Zanzibar spice islands","Swahili and English are its official languages"]},
+  {name:"Turkey",flag:"🇹🇷",lat:38.96,lng:35.24,clues:["Transcontinental country spanning Europe and Asia","Bordered by 8 countries and surrounded by 4 seas","Birthplace of Troy, the Byzantine Empire, and the Ottoman Empire","World's largest hazelnut producer; capital is Ankara"]},
+  {name:"Ukraine",flag:"🇺🇦",lat:48.38,lng:31.17,clues:["Largest country located entirely within Europe","Vast flat steppes and a long Black Sea coastline","Breadbasket of Europe; world's top wheat and sunflower oil exporter","Kyiv is one of Europe's oldest cities, founded in the 5th century"]},
+  {name:"United Kingdom",flag:"🇬🇧",lat:55.38,lng:-3.44,clues:["Island nation off the northwest coast of mainland Europe","Made up of England, Scotland, Wales, and Northern Ireland","Led the Industrial Revolution; built the largest empire in history","Home of Shakespeare, Isaac Newton, Charles Darwin, and the Beatles"]},
+  {name:"United States",flag:"🇺🇸",lat:37.09,lng:-95.71,clues:["Third-largest country in the world by area and by population","Diverse geography: Rockies, Great Plains, Appalachians, and two ocean coasts","World's largest economy and largest military spender","Birthplace of jazz, Hollywood cinema, the internet, and the moon landing"]},
+  {name:"Vietnam",flag:"🇻🇳",lat:14.06,lng:108.28,clues:["Southeast Asian nation shaped like a long S on the South China Sea","Mekong Delta in the south; Red River Delta in the north","One-party socialist republic; one of the fastest-growing economies in Asia","Famous for pho, bánh mì, and the UNESCO-listed Ha Long Bay"]},
+];
+
+// ══════════════ MAP ══════════════
+const map=L.map('map',{center:[20,10],zoom:2,zoomControl:true,attributionControl:false});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+function mkIcon(e,c){return L.divIcon({html:`<div style="width:34px;height:34px;background:${c};border:3px solid #1a1a1a;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:4px 4px 0 #1a1a1a"><span style="transform:rotate(45deg);font-size:16px">${e}</span></div>`,className:'',iconSize:[34,34],iconAnchor:[17,34]})}
+
+// ══════════════ STATE ══════════════
+let MODE='solo';
+let G={
+  hearts:5,round:1,totalRounds:10,cur:null,clueIdx:0,used:[],
+  mkrs:[],guessed:false,players:[{name:'You',score:0}],curP:0,
+  peer:null,conn:null,isHost:false,oppName:'Opponent',oppScore:0,oppGuessed:false,
+  _lg:null,_ld:0,_lc:false,_lp:0
+};
+const CT=['REGION','GEOGRAPHY','ECONOMY / HISTORY','CULTURE'];
+
+// ══════════════ DOM ══════════════
+const GI=document.getElementById('guess-input');
+const GB=document.getElementById('guess-btn');
+const ACL=document.getElementById('ac-list');
+const hintBtn=document.getElementById('hint-btn');
+const histList=document.getElementById('hist-list');
+
+// ══════════════ MODE SELECT ══════════════
+function startMode(m){
+  MODE=m;
+  document.getElementById('mode-screen').classList.add('hidden');
+  document.getElementById('mode-badge').textContent=m==='solo'?'SOLO':m==='ai'?'VS AI':m==='pnp'?'PASS & PLAY':'ONLINE';
+  G={...G,hearts:5,round:1,cur:null,clueIdx:0,used:[],mkrs:[],guessed:false,curP:0,oppGuessed:false,oppScore:0};
+  if(m==='solo')G.players=[{name:'You',score:0}];
+  if(m==='ai')G.players=[{name:'You',score:0},{name:'AI',score:0}];
+  updH();newRound();
+  setTimeout(()=>map.invalidateSize(),100);
+}
+function openPnP(){document.getElementById('pnp-modal').classList.add('open')}
+function closePnP(){document.getElementById('pnp-modal').classList.remove('open')}
+function startPnP(){
+  const p1=document.getElementById('pnp-p1').value||'Player 1';
+  const p2=document.getElementById('pnp-p2').value||'Player 2';
+  G.players=[{name:p1,score:0},{name:p2,score:0}];
+  closePnP();startMode('pnp');
+}
+function goHome(){if(G.peer)try{G.peer.destroy()}catch(e){}location.reload()}
+
+// ══════════════ ONLINE ══════════════
+function openOnline(){document.getElementById('online-modal').classList.add('open');omTab('host',document.querySelector('.tab.on'));initHost()}
+function closeOnline(){document.getElementById('online-modal').classList.remove('open');if(G.peer)try{G.peer.destroy()}catch(e){};G.peer=null;G.conn=null}
+function omTab(t,el){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  if(el)el.classList.add('on');
+  document.getElementById('t-host').classList.toggle('on',t==='host');
+  document.getElementById('t-join').classList.toggle('on',t==='join');
+}
+function randCode(){return Math.random().toString(36).substr(2,4).toUpperCase()}
+function initHost(){
+  if(G.peer)try{G.peer.destroy()}catch(e){}
+  const code=randCode();
+  document.getElementById('om-code').textContent=code;
+  document.getElementById('om-stat').textContent='Waiting for opponent...';
+  try{
+    const peer=new Peer('gb-'+code);G.peer=peer;G.isHost=true;
+    peer.on('open',()=>{document.getElementById('om-stat').textContent='Room ready — share the code!'});
+    peer.on('connection',conn=>{
+      G.conn=conn;
+      document.getElementById('om-stat').textContent='Connected! Starting...';
+      conn.on('data',onlineData);
+      conn.on('close',()=>alert('Opponent disconnected'));
+      conn.send({type:'start'});
+      setTimeout(()=>{
+        document.getElementById('online-modal').classList.remove('open');
+        G.players=[{name:'You',score:0}];G.oppScore=0;G.oppName='Friend';
+        document.getElementById('online-bar').classList.add('on');
+        document.getElementById('ob-name').textContent=G.oppName;
+        startMode('online');
+      },800);
+    });
+    peer.on('error',e=>document.getElementById('om-stat').textContent='Error: '+e.type);
+  }catch(e){document.getElementById('om-stat').textContent='Connection unavailable'}
+}
+function joinOnline(){
+  const code=document.getElementById('om-join-inp').value.trim().toUpperCase();
+  if(code.length<4){document.getElementById('om-join-stat').textContent='Enter a 4-letter code';return}
+  document.getElementById('om-join-stat').textContent='Connecting...';
+  try{
+    const peer=new Peer();G.peer=peer;G.isHost=false;
+    peer.on('open',()=>{
+      const conn=peer.connect('gb-'+code);G.conn=conn;
+      conn.on('open',()=>{document.getElementById('om-join-stat').textContent='Connected! Waiting for host...';conn.on('data',onlineData)});
+      conn.on('error',e=>document.getElementById('om-join-stat').textContent='Failed');
+    });
+    peer.on('error',e=>document.getElementById('om-join-stat').textContent='Error: '+e.type);
+  }catch(e){document.getElementById('om-join-stat').textContent='Unavailable'}
+}
+function onlineData(d){
+  if(d.type==='start'&&!G.isHost){
+    document.getElementById('online-bar').classList.add('on');
+    document.getElementById('ob-name').textContent='Host';
+    document.getElementById('online-modal').classList.remove('open');
+    G.players=[{name:'You',score:0}];G.oppScore=0;G.oppName='Host';
+    document.getElementById('mode-screen').classList.add('hidden');
+    document.getElementById('mode-badge').textContent='ONLINE';
+    G.hearts=5;G.round=1;G.used=[];G.mkrs=[];updH();
+    setTimeout(()=>map.invalidateSize(),100);
+  }
+  if(d.type==='round'&&!G.isHost){
+    const c=COUNTRIES.find(x=>x.name===d.country);
+    if(c){G.cur=c;G.clueIdx=0;G.guessed=false;G.oppGuessed=false;G.mkrs.forEach(m=>map.removeLayer(m));G.mkrs=[];histList.innerHTML='';updClue();GI.value='';document.getElementById('round-text').textContent=`ROUND ${G.round}/${G.totalRounds}`;}
+  }
+  if(d.type==='guess'){
+    G.oppScore+=d.pts||0;updScore();
+    const c=COUNTRIES.find(x=>x.name===d.country);
+    if(c&&G.cur){
+      const dist=hav(c.lat,c.lng,G.cur.lat,G.cur.lng);
+      const m=L.marker([c.lat,c.lng],{icon:mkIcon('👤','#8b5cf6')}).addTo(map);
+      m.bindPopup(`<b>👤 ${G.oppName}: ${c.name}</b><br/>${fmt(dist)} from target`);
+      G.mkrs.push(m);addHist(c,dist,G.oppName);
+    }
+    G.oppGuessed=true;chkBoth();
+  }
+  if(d.type==='clue'&&!G.isHost){G.clueIdx=d.idx;updClue()}
+}
+function chkBoth(){if(G.guessed&&G.oppGuessed)showResult(G._lg,G.cur,G._ld,G._lc,G._lp)}
+
+// ══════════════ UTILS ══════════════
+function hav(la1,ln1,la2,ln2){const R=6371,dL=(la2-la1)*Math.PI/180,dN=(ln2-ln1)*Math.PI/180;const a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dN/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))}
+function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function fmt(d){return d<1?'<1 km':Math.round(d).toLocaleString()+' km'}
+function updH(){for(let i=1;i<=5;i++)document.getElementById('h'+i).classList.toggle('lost',i>G.hearts)}
+function updScore(){
+  const s=document.getElementById('score-disp');
+  if(MODE==='pnp') s.textContent=G.players.map(p=>p.score).join(' | ');
+  else if(MODE==='online') s.textContent=`${G.players[0].score} | ${G.oppScore}`;
+  else s.textContent=G.players[0].score+' PTS';
+}
+
+// ══════════════ ROUND ══════════════
+function newRound(){
+  G.mkrs.forEach(m=>map.removeLayer(m));G.mkrs=[];
+  G.guessed=false;G.oppGuessed=false;G.clueIdx=0;
+  histList.innerHTML='';GI.value='';ACL.innerHTML='';ACL.classList.remove('open');
+  const avail=COUNTRIES.filter(c=>!G.used.includes(c.name));
+  if(!avail.length){G.used=[];avail.push(...COUNTRIES)}
+  G.cur=shuf([...avail])[0];G.used.push(G.cur.name);
+  updClue();
+  document.getElementById('round-text').textContent=`ROUND ${G.round}/${G.totalRounds}`;
+  updScore();
+  hintBtn.disabled=false;hintBtn.textContent='🔍 Reveal Next Clue (–50 pts)';
+  map.setView([20,10],2);
+  if(MODE==='pnp'){document.getElementById('turn-banner').classList.add('on');document.getElementById('turn-name').textContent=G.players[G.curP].name}
+  if(MODE==='online'&&G.isHost&&G.conn)G.conn.send({type:'round',country:G.cur.name});
+  if(MODE==='ai')setTimeout(doAI,2000+Math.random()*3000);
+}
+function updClue(){
+  const idx=G.clueIdx;
+  document.getElementById('clue-lbl').textContent=`CLUE ${idx+1} — ${CT[idx]}`;
+  document.getElementById('clue-n').textContent=`${idx+1}/4`;
+  document.getElementById('clue-txt').textContent=G.cur.clues[idx];
+  if(idx>=3){hintBtn.disabled=true;hintBtn.textContent='✅ All Clues Revealed'}
+}
+hintBtn.addEventListener('click',()=>{
+  if(G.clueIdx<3){
+    G.clueIdx++;
+    const pi=MODE==='pnp'?G.curP:0;
+    G.players[pi].score=Math.max(0,G.players[pi].score-50);
+    updScore();updClue();
+    if(MODE==='online'&&G.conn)G.conn.send({type:'clue',idx:G.clueIdx});
+  }
+});
+
+// ══════════════ AUTOCOMPLETE ══════════════
+let acSel=-1;
+GI.addEventListener('input',()=>{
+  const v=GI.value.trim().toLowerCase();ACL.innerHTML='';acSel=-1;
+  if(!v){ACL.classList.remove('open');return}
+  const ms=COUNTRIES.filter(c=>c.name.toLowerCase().includes(v)).slice(0,8);
+  if(!ms.length){ACL.classList.remove('open');return}
+  ms.forEach(c=>{
+    const d=document.createElement('div');d.className='ac-item';
+    const n=c.name,mi=n.toLowerCase().indexOf(v);
+    d.innerHTML=`<span>${c.flag}</span><span>${mi>=0?n.slice(0,mi)+'<span class="m">'+n.slice(mi,mi+v.length)+'</span>'+n.slice(mi+v.length):n}</span>`;
+    d.addEventListener('mousedown',e=>{e.preventDefault();selC(c.name)});
+    ACL.appendChild(d);
+  });
+  ACL.classList.add('open');
+});
+GI.addEventListener('keydown',e=>{
+  const its=ACL.querySelectorAll('.ac-item');
+  if(e.key==='ArrowDown'){acSel=Math.min(acSel+1,its.length-1);hlAC(its)}
+  else if(e.key==='ArrowUp'){acSel=Math.max(acSel-1,0);hlAC(its)}
+  else if(e.key==='Enter'){if(acSel>=0&&its[acSel])selC(its[acSel].querySelectorAll('span')[1].textContent);else submitG()}
+  else if(e.key==='Escape')ACL.classList.remove('open');
+});
+function hlAC(its){its.forEach((el,i)=>el.classList.toggle('sel',i===acSel))}
+function selC(n){GI.value=n;ACL.classList.remove('open');ACL.innerHTML=''}
+document.addEventListener('click',e=>{if(!e.target.closest('#search-panel'))ACL.classList.remove('open')});
+
+// ══════════════ GUESS ══════════════
+GB.addEventListener('click',submitG);
+function submitG(){
+  if(G.guessed)return;
+  const v=GI.value.trim();
+  const c=COUNTRIES.find(x=>x.name.toLowerCase()===v.toLowerCase());
+  if(!c){GI.classList.add('shake');setTimeout(()=>GI.classList.remove('shake'),400);return}
+  procGuess(c,true);
+}
+function procGuess(country,isP){
+  if(G.guessed&&isP)return;
+  const tgt=G.cur;
+  const dist=hav(country.lat,country.lng,tgt.lat,tgt.lng);
+  const ok=country.name===tgt.name,cl=dist<50,fr=dist>500;
+  if(isP){
+    G.guessed=true;
+    const pi=MODE==='pnp'?G.curP:0;
+    let pts=0;
+    if(ok)pts=Math.max(200,1000-G.clueIdx*200);
+    else if(dist<500)pts=Math.max(0,Math.round(500-dist));
+    G.players[pi].score+=pts;
+    if(ok||cl)G.hearts=Math.min(5,G.hearts+1);
+    else if(fr)G.hearts=Math.max(0,G.hearts-1);
+    updH();updScore();
+    const m=L.marker([country.lat,country.lng],{icon:mkIcon(country.flag,ok?'#639922':cl?'#f59e0b':'#ff4b2b')}).addTo(map);
+    m.bindPopup(`<b>${country.flag} ${country.name}</b><br/>${fmt(dist)} from target`);G.mkrs.push(m);
+    addHist(country,dist,G.players[pi].name);
+    const tm=L.marker([tgt.lat,tgt.lng],{icon:mkIcon(tgt.flag,'#639922')}).addTo(map);
+    tm.bindPopup(`<b>${tgt.flag} ${tgt.name}</b><br/>This was the target!`).openPopup();G.mkrs.push(tm);
+    if(!ok){const ln=L.polyline([[country.lat,country.lng],[tgt.lat,tgt.lng]],{color:'#1a1a1a',weight:2,dashArray:'6,6',opacity:0.6}).addTo(map);G.mkrs.push(ln)}
+    map.fitBounds(L.latLngBounds([[country.lat,country.lng],[tgt.lat,tgt.lng]]).pad(0.3));
+    if(MODE==='online'&&G.conn)G.conn.send({type:'guess',country:country.name,pts});
+    if(MODE==='online'){G._lg=country;G._ld=dist;G._lc=ok;G._lp=pts;chkBoth()}
+    else setTimeout(()=>showResult(country,tgt,dist,ok,pts),600);
+  } else {
+    const m=L.marker([country.lat,country.lng],{icon:mkIcon('🤖','#8b5cf6')}).addTo(map);
+    const d2=hav(country.lat,country.lng,tgt.lat,tgt.lng);
+    m.bindPopup(`<b>🤖 AI: ${country.name}</b><br/>${fmt(d2)} from target`);G.mkrs.push(m);
+    const ap=country.name===tgt.name?800:Math.max(0,Math.round(500-d2));
+    G.players[1].score+=ap;updScore();addHist(country,d2,'🤖 AI');
+    document.getElementById('ai-badge').classList.remove('on');
+  }
+}
+
+// ══════════════ AI ══════════════
+function doAI(){
+  if(G.guessed)return;
+  document.getElementById('ai-badge').classList.add('on');
+  setTimeout(()=>{
+    const r=Math.max(300,2500-G.round*200),t=G.cur;
+    const lo=(Math.random()-.5)*(r/111),ln=(Math.random()-.5)*(r/111);
+    const al=Math.max(-85,Math.min(85,t.lat+lo)),aln=t.lng+ln;
+    let best=COUNTRIES[0],bd=Infinity;
+    COUNTRIES.forEach(c=>{const d=hav(c.lat,c.lng,al,aln);if(d<bd){bd=d;best=c}});
+    procGuess(best,false);
+  },1500+Math.random()*1000);
+}
+
+// ══════════════ HISTORY ══════════════
+function addHist(c,dist,who){
+  const d=document.createElement('div');d.className='hi';
+  const dc=dist<200?'c':dist<1000?'m':'f';
+  d.innerHTML=`<span class="hi-flag">${c.flag}</span><div class="hi-info"><div class="hi-name">${c.name}</div>${who?`<div class="hi-who">${who}</div>`:''}<div class="hi-dist ${dc}">${fmt(dist)}</div></div>`;
+  histList.prepend(d);
+}
+
+// ══════════════ RESULT ══════════════
+function showResult(guessed,tgt,dist,ok,pts){
+  document.getElementById('r-flag').textContent=tgt.flag;
+  document.getElementById('r-title').textContent=tgt.name;
+  document.getElementById('r-sub').textContent=ok?`Perfect! 🎉 +${pts} points`:`You guessed: ${guessed.flag} ${guessed.name} (+${pts} pts)`;
+  const de=document.getElementById('r-dist');
+  de.textContent=ok?'🎯 EXACT!':fmt(dist)+' away';
+  de.className=ok||dist<500?'win':'loss';
+  const rs=document.getElementById('r-scores');rs.innerHTML='';
+  let all=[];
+  if(MODE==='solo')all=[{name:'You',score:G.players[0].score}];
+  else if(MODE==='ai')all=[{name:'You',score:G.players[0].score},{name:'🤖 AI',score:G.players[1].score}];
+  else if(MODE==='pnp')all=[...G.players];
+  else if(MODE==='online')all=[{name:'You',score:G.players[0].score},{name:G.oppName,score:G.oppScore}];
+  all.forEach(p=>{const b=document.createElement('div');b.className='rsb';b.innerHTML=`<div class="rsb-n">${p.name}</div><div class="rsb-v">${p.score}</div>`;rs.appendChild(b)});
+  document.getElementById('result').classList.add('open');
+}
+document.getElementById('r-next').addEventListener('click',()=>{
+  document.getElementById('result').classList.remove('open');
+  G.round++;
+  if(G.round>G.totalRounds||G.hearts<=0){endGame();return}
+  if(MODE==='pnp'){
+    G.curP=G.curP===0?1:0;
+    const np=G.players[G.curP];
+    document.getElementById('ho-emoji').textContent='📱';
+    document.getElementById('ho-title').textContent=`Pass to ${np.name}!`;
+    document.getElementById('ho-sub').textContent=`${np.name}'s turn — don't peek!`;
+    document.getElementById('handoff').classList.add('open');
+  } else newRound();
+});
+document.getElementById('ho-btn').addEventListener('click',()=>{
+  document.getElementById('handoff').classList.remove('open');newRound();
+});
+
+// ══════════════ GAME OVER ══════════════
+function endGame(){
+  const e=G.hearts<=0?'💔':G.players[0].score>5000?'🏆':'🧠';
+  document.getElementById('go-emo').textContent=e;
+  const gs=document.getElementById('go-scores');gs.innerHTML='';
+  let all=[];
+  if(MODE==='solo')all=[{name:'You',score:G.players[0].score}];
+  else if(MODE==='ai')all=[{name:'You',score:G.players[0].score},{name:'🤖 AI',score:G.players[1].score}];
+  else if(MODE==='pnp')all=[...G.players];
+  else all=[{name:'You',score:G.players[0].score},{name:G.oppName,score:G.oppScore}];
+  const mx=Math.max(...all.map(p=>p.score));
+  all.forEach(p=>{
+    const b=document.createElement('div');
+    b.className='gsb'+(p.score===mx&&all.length>1?' win':'');
+    b.innerHTML=`<div class="gsb-n">${p.name}</div><div class="gsb-v">${p.score.toLocaleString()}</div><div class="gsb-l">points</div>`;
+    gs.appendChild(b);
+  });
+  if(all.length>1){const w=all.reduce((a,b)=>a.score>b.score?a:b);document.getElementById('go-win').textContent=`🏆 ${w.name} wins!`}
+  else document.getElementById('go-win').textContent=G.players[0].score>5000?'Outstanding geographical intelligence!':G.players[0].score>2000?'Solid world knowledge!':'Keep exploring the globe!';
+  document.getElementById('gameover').classList.add('open');
+}
+</script>
+</body>
+</html>
